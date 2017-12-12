@@ -40,6 +40,8 @@ namespace StackExchange.Profiling
             if (settings == null) return _empty;
 
             var authorized = settings.ResultsAuthorize?.Invoke(HttpContext.Current.Request) ?? true;
+            // If we're not authroized, we're just rendering a <script> tag for no reason.
+            if (!authorized) return _empty;
 
             // unviewed ids are added to this list during Storage.Save, but we know we haven't 
             // seen the current one yet, so go ahead and add it to the end 
@@ -67,62 +69,7 @@ namespace StackExchange.Profiling
         /// </summary>
         /// <param name="profiler">The current profiling session or null.</param>
         public static IHtmlString Render(this MiniProfiler profiler) =>
-            new HtmlString(RenderImpl(profiler, true));
-
-        /// <summary>
-        /// Returns a plain-text representation of <paramref name="profiler"/>, suitable for viewing from 
-        /// <see cref="Console"/>, log, or unit test output.
-        /// </summary>
-        /// <param name="profiler">A profiling session with child <see cref="Timing"/> instances.</param>
-        public static string RenderPlainText(this MiniProfiler profiler) =>
-            RenderImpl(profiler, false);
-
-        private static string RenderImpl(MiniProfiler profiler, bool htmlEncode)
-        {
-            if (profiler == null) return string.Empty;
-
-            var text = new StringBuilder()
-                .Append(htmlEncode ? HttpUtility.HtmlEncode(Environment.MachineName) : Environment.MachineName)
-                .Append(" at ")
-                .Append(DateTime.UtcNow)
-                .AppendLine();
-
-            var timings = new Stack<Timing>();
-            timings.Push(profiler.Root);
-
-            while (timings.Count > 0)
-            {
-                var timing = timings.Pop();
-                var name = htmlEncode ? HttpUtility.HtmlEncode(timing.Name) : timing.Name;
-
-                text.AppendFormat("{2} {0} = {1:###,##0.##}ms", name, timing.DurationMilliseconds, new string('>', timing.Depth));
-
-                if (timing.HasCustomTimings)
-                {
-                    foreach (var pair in timing.CustomTimings)
-                    {
-                        var type = pair.Key;
-                        var customTimings = pair.Value;
-
-                        text.AppendFormat(" ({0} = {1:###,##0.##}ms in {2} cmd{3})",
-                            type,
-                            customTimings.Sum(ct => ct.DurationMilliseconds),
-                            customTimings.Count,
-                            customTimings.Count == 1 ? string.Empty : "s");
-                    }
-                }
-
-                text.AppendLine();
-
-                if (timing.HasChildren)
-                {
-                    var children = timing.Children;
-                    for (var i = children.Count - 1; i >= 0; i--) timings.Push(children[i]);
-                }
-            }
-
-            return text.ToString();
-        }
+            new HtmlString(profiler.RenderPlainText(true));
 
         /// <summary>
         /// Returns null if there is not client timing stuff

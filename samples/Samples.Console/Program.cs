@@ -1,11 +1,11 @@
-﻿using System;
+﻿using Dapper;
+using StackExchange.Profiling;
+using System;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Net;
 using System.Threading;
-
-using Dapper;
-using StackExchange.Profiling;
+using static System.Console;
 
 namespace Samples.Console
 {
@@ -14,8 +14,6 @@ namespace Samples.Console
     /// </summary>
     public static class Program
     {
-        private static MiniProfilerOptions Options;
-
         /// <summary>
         /// application entry point.
         /// </summary>
@@ -24,29 +22,18 @@ namespace Samples.Console
         {
             try
             {
-                SetupProfiling();
-                //Test();
+                Test();
+                WriteLine(MiniProfiler.Current.RenderPlainText());
                 TestMultiThreaded();
-                Report();
+                WriteLine(MiniProfiler.Current.RenderPlainText());
 
                 if (Debugger.IsAttached)
-                    System.Console.ReadKey();
+                    ReadKey();
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine(ex);
+                WriteLine(ex);
             }
-        }
-
-        /// <summary>
-        /// setup the profiling.
-        /// </summary>
-        public static void SetupProfiling()
-        {
-            // We're using DefaultProfilerProvider here (not the Web provider) because we're 
-            // not using HttpContext.Current to track MiniPofiler.Current
-            // In general, DefaultProfilerProvider() should be the go-to for most new applications.
-            Options = new MiniProfilerOptions().SetProvider(new DefaultProfilerProvider());
         }
 
         /// <summary>
@@ -54,7 +41,7 @@ namespace Samples.Console
         /// </summary>
         public static void Test()
         {
-            var mp = Options.StartProfiler("Test");
+            var mp = MiniProfiler.StartNew("Test");
 
             using (mp.Step("Level 1"))
             using (var conn = GetConnection())
@@ -78,8 +65,8 @@ namespace Samples.Console
 
         public static void TestMultiThreaded()
         {
-            var mp = Options.StartProfiler("Locking");
-            Action doWork = () => Thread.Sleep(new Random().Next(1, 50));
+            var mp = MiniProfiler.StartNew("Locking");
+            void doWork() => Thread.Sleep(new Random().Next(1, 50));
 
             using (mp.Step("outer"))
             {
@@ -98,14 +85,6 @@ namespace Samples.Console
                     }
                 });
             }
-        }
-
-        /// <summary>
-        /// produce a profiling report.
-        /// </summary>
-        public static void Report()
-        {
-            System.Console.WriteLine(MiniProfiler.Current.RenderPlainText());
         }
 
         /// <summary>
